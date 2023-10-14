@@ -1,0 +1,8 @@
+xcelium.d/
+*INCA*
+waves.shm/
+.simvision/
+cov_work/
+*.log
+*.history
+*.key
