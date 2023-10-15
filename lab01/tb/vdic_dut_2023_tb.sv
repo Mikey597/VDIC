@@ -76,65 +76,68 @@ end
 
 
 //---------------------------------
-function byte get_data();
+function logic signed [15:0] get_data();
+    bit [2:0] zero_ones;
 
-    bit [1:0] zero_ones;
+    zero_ones = 3'($random);
 
-    zero_ones = 2'($random);
-
-    if (zero_ones == 2'b00)
-        return 8'h00;
-    else if (zero_ones == 2'b11)
-        return 8'hFF;
+    if (zero_ones == 3'b000)
+        return 16'sh8000;
+    else if (zero_ones == 3'b111)
+        return 16'sh7FFF;
     else
-        return 8'($random);
+        return 16'($random);
 endfunction : get_data
+
+function logic get_parity(logic signed [15:0] arg);
+	logic  arg_parity;
+	assign arg_parity = ^arg;
+	return arg_parity;
+endfunction	: get_parity
 
 //------------------------
 // Tester main
 
 initial begin : tester
-    reset_alu();
+	logic signed [31:0] expected;
+	logic exp_parity;
+	
+    reset();
+	
     repeat (1000) begin : tester_main_blk
         @(negedge clk);
-        op_set = get_op();
-        A      = get_data();
-        B      = get_data();
-        start  = 1'b1;
-        case (op_set) // handle the start signal
-            no_op: begin : case_no_op_blk
-                @(negedge clk);
-                start                             = 1'b0;
-            end
-            rst_op: begin : case_rst_op_blk
-                reset_alu();
-            end
-            default: begin : case_default_blk
-                wait(done);
-                @(negedge clk);
-                start                             = 1'b0;
-
-                //------------------------------------------------------------------------------
-                // temporary data check - scoreboard will do the job later
-                begin
-                    automatic bit [15:0] expected = get_expected(A, B, op_set);
-                    assert(result === expected) begin
-                        `ifdef DEBUG
-                        $display("Test passed for A=%0d B=%0d op_set=%0d", A, B, op);
-                        `endif
-                    end
-                    else begin
-                        $display("Test FAILED for A=%0d B=%0d op_set=%0d", A, B, op);
-                        $display("Expected: %d  received: %d", expected, result);
-                        test_result = TEST_FAILED;
-                    end;
-                end
-
-            end : case_default_blk
-        endcase // case (op_set)
-    // print coverage after each loop
-    // $strobe("%0t coverage: %.4g\%",$time, $get_coverage());
-    // if($get_coverage() == 100) break;
+        arg_a      = get_data();
+	    arg_a_parity = get_parity(arg_a);
+        arg_b      = get_data();
+	    arg_b_parity = get_parity(arg_b);
+	    req = 1'b1;
+	    
+	    wait( ack );
+	    req = 1'b0;
+	    wait(result_rdy);
+	     
+        expected = get_expected(arg_a, arg_b);
+	    exp_parity = check_parity(result);
+	            
+	        if (arg_parity_error === 1'b1) begin
+                $display("argument parity error for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+	        end
+	        
+	        assert(result_parity === exp_parity) begin
+            	if(result === expected) begin
+                   	$display("Test passed for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+               	end
+               	else begin
+	               	$display("Test FAILED for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+               		$display("Expected: %d  received: %d", expected, result);
+               		test_result = TEST_FAILED;
+               	end;
+            end	
+	        else begin
+	            $display("Test FAILED, wrong parity bit for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+	            $display("Expected parity bit: %d  received: %d", exp_parity, result_parity);
+	            test_result = TEST_FAILED;
+            end 
     end : tester_main_blk
     $finish;
 end : tester
@@ -143,45 +146,44 @@ end : tester
 // reset task
 //------------------------------------------------------------------------------
 
-task reset_alu();
-    `ifdef DEBUG
-    $display("%0t DEBUG: reset_alu", $time);
-    `endif
-    start   = 1'b0;
-    reset_n = 1'b0;
+task reset();
+    $display("%0t DEBUG: reset", $time);
+    rst_n = 1'b0;
     @(negedge clk);
-    reset_n = 1'b1;
-endtask : reset_alu
+    	rst_n = 1'b1;
+endtask : reset
 
 //------------------------------------------------------------------------------
 // calculate expected result
 //------------------------------------------------------------------------------
 
-function logic [15:0] get_expected(
-        bit [7:0] A,
-        bit [7:0] B,
-        operation_t op_set
-    );
-    bit [15:0] ret;
-    `ifdef DEBUG
-    $display("%0t DEBUG: get_expected(%0d,%0d,%0d)",$time, A, B, op_set);
-    `endif
-    case(op_set)
-        and_op : ret    = A & B;
-        add_op : ret    = A + B;
-        mul_op : ret    = A * B;
-        xor_op : ret    = A ^ B;
-        default: begin
-            $display("%0t INTERNAL ERROR. get_expected: unexpected case argument: %s", $time, op_set);
-            test_result = TEST_FAILED;
-            return -1;
-        end
-    endcase
+function logic [31:0] get_expected(
+        logic signed [15:0] arg_a,
+        logic signed [15:0] arg_b
+	);
+	
+    logic signed [31:0] ret;
+	
+    $display("%0t DEBUG: get_expected(%0d,%0d)",$time, arg_a, arg_b);
+    
+    ret    = arg_a * arg_b;
     return(ret);
+	
 endfunction : get_expected
 
+// calculate expected parity bit 
+
+function logic check_parity( logic signed [31:0] expected);
+	
+	logic ret;
+	
+	ret = ^expected;
+	
+	return(ret);
+	
+endfunction : check_parity
 //------------------------------------------------------------------------------
-// Temporary. The scoreboard will be later used for checking the data
+
 final begin : finish_of_the_test
     print_test_result(test_result);
 end
