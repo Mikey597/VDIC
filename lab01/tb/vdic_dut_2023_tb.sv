@@ -90,8 +90,18 @@ function logic signed [15:0] get_data();
 endfunction : get_data
 
 function logic get_parity(logic signed [15:0] arg);
+
 	logic  arg_parity;
-	assign arg_parity = ^arg;
+	bit [2:0] err;
+	
+	err = 3'($random);
+	
+	arg_parity = ^arg;
+	
+	if (err == '0) begin
+		arg_parity = ~arg_parity;
+	end
+	
 	return arg_parity;
 endfunction	: get_parity
 
@@ -164,7 +174,7 @@ function logic [31:0] get_expected(
 	
     logic signed [31:0] ret;
 	
-    $display("%0t DEBUG: get_expected(%0d,%0d)",$time, arg_a, arg_b);
+    //$display("%0t DEBUG: get_expected(%0d,%0d)",$time, arg_a, arg_b);
     
     ret    = arg_a * arg_b;
     return(ret);
