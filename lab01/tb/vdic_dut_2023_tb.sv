@@ -26,13 +26,13 @@ typedef enum {
 
 logic 		 		clk;
 logic 		 		rst_n;
-logic signed [15:0] arg_a;
+logic signed [15:0]   arg_a;
 logic 		 		arg_a_parity;     // parity bit for arg b (even parity)
-logic signed [15:0] arg_b;       
+logic signed [15:0]   arg_b;       
 logic 		 		arg_b_parity;      // parity bit for arg_a (even parity)
 logic  		 		req;               // arguments are valid
 logic   	 		ack;               // acknowledge for the arguments
-logic signed [31:0] result;            // result of multiplication
+logic signed [31:0]   result;            // result of multiplication
 logic 		 		result_parity;     // parity bit for result (even parity)
 logic 		 		result_rdy;        // result is ready
 logic 		 		arg_parity_error;  // set to 1 when input data has parity errors
@@ -90,8 +90,18 @@ function logic signed [15:0] get_data();
 endfunction : get_data
 
 function logic get_parity(logic signed [15:0] arg);
+
 	logic  arg_parity;
-	assign arg_parity = ^arg;
+	bit [2:0] err;
+	
+	err = 3'($random);
+	
+	arg_parity = ^arg;
+	
+	if (err == '0) begin
+		arg_parity = ~arg_parity;
+	end
+	
 	return arg_parity;
 endfunction	: get_parity
 
@@ -113,30 +123,31 @@ initial begin : tester
 	    req = 1'b1;
 	    
 	    wait( ack );
-	    req = 1'b0;
 	    wait(result_rdy);
-	     
+	    req = 1'b0;
+
         expected = get_expected(arg_a, arg_b);
 	    exp_parity = check_parity(result);
 	            
 	        if (arg_parity_error === 1'b1) begin
                 $display("argument parity error for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
 	        end
-	        
-	        assert(result_parity === exp_parity) begin
-            	if(result === expected) begin
-                   	$display("Test passed for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
-               	end
-               	else begin
-	               	$display("Test FAILED for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
-               		$display("Expected: %d  received: %d", expected, result);
-               		test_result = TEST_FAILED;
-               	end;
-            end	
 	        else begin
-	            $display("Test FAILED, wrong parity bit for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
-	            $display("Expected parity bit: %d  received: %d", exp_parity, result_parity);
-	            test_result = TEST_FAILED;
+                assert(result_parity === exp_parity) begin
+                    if(result === expected) begin
+                        $display("Test passed for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+                    end
+                    else begin
+                        $display("Test FAILED for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+                        $display("Expected: %d  received: %d", expected, result);
+                        test_result = TEST_FAILED;
+                    end;
+                end	
+                else begin
+                    $display("Test FAILED, wrong parity bit for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
+                    $display("Expected parity bit: %d  received: %d", exp_parity, result_parity);
+                    test_result = TEST_FAILED;
+                end
             end 
     end : tester_main_blk
     $finish;
@@ -164,7 +175,7 @@ function logic [31:0] get_expected(
 	
     logic signed [31:0] ret;
 	
-    $display("%0t DEBUG: get_expected(%0d,%0d)",$time, arg_a, arg_b);
+    //$display("%0t DEBUG: get_expected(%0d,%0d)",$time, arg_a, arg_b);
     
     ret    = arg_a * arg_b;
     return(ret);
