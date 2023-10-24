@@ -89,13 +89,13 @@ covergroup cg_data_corners;
     a_data: coverpoint arg_a {
 	    bins min= {16'sh8000};
         bins max= {16'sh7FFF};
-        bins others= {[16'sh8001:16'sh7FFE]};
+	    bins others= {[16'sh8001:16'sh7FFE]};
     }
 
     b_data: coverpoint arg_b {
 	    bins min= {16'sh8000};
         bins max= {16'sh7FFF};
-        bins others= {[16'sh8001:16'sh7FFE]};
+	    bins others= {[16'sh8001:16'sh7FFE]};
     }
     
     par_data_corn_cross: cross a_data, b_data {
@@ -105,17 +105,41 @@ covergroup cg_data_corners;
     }
 endgroup
 
+covergroup cg_data_zero;
+	
+	option.name = "cd_data_zero";
+	
+	a_data_zero: coverpoint arg_a {
+	bins zero= {16'sh0000};
+	bins others= {[16'sh8000:16'sh0000]};	
+	bins others_1= {[16'sh0000:16'sh7FFF]};	
+	}
+	b_data_zero: coverpoint arg_b {
+	bins zero= {16'sh0000};
+	bins others= {[16'sh8000:16'sh0000]};	
+	bins others_1= {[16'sh0000:16'sh7FFF]};		
+	}
+	
+    par_data_corn_cross: cross a_data_zero, b_data_zero {
+	    
+	    bins zero_a_cross = binsof (a_data_zero.zero) && binsof (b_data_zero.others);
+	    bins zero_b_cross = binsof (a_data_zero.others_1) && binsof (b_data_zero.zero);  
+    }	
+	
+endgroup
+
 parity_rst_cov         c_par_rst;
 cg_data_corners        c_7FFF_8000;
-
+cg_data_zero           c_0000;
 initial begin : coverage
     c_par_rst      = new();
     c_7FFF_8000    = new();
+	c_0000         = new();
     forever begin : sample_cov
         @(posedge clk);
             c_par_rst.sample();
             c_7FFF_8000.sample();
-            
+            c_0000.sample();
             /* #1step delay is necessary before checking for the coverage
              * as the .sample methods run in parallel threads
              */
@@ -210,7 +234,7 @@ initial begin : tester
 	bit exp_parity;
     reset();
 	
-    repeat (10000) begin : tester_main_blk
+    repeat (100000) begin : tester_main_blk
         @(negedge clk);
         arg_a      = get_data();
         arg_b      = get_data();
