@@ -253,8 +253,8 @@ initial begin : tester
 	    while(!result_rdy)@(negedge clk);
 	    
 	    expected = get_expected(arg_a, arg_b);
-	    exp_parity = get_expected_parity(result);
-
+	    exp_parity = get_expected_parity(expected);
+	    
 	        if (arg_parity_error === 1'b1) begin
 		        `ifdef DEBUG
                 $display("argument parity error for arg_a=%h arg_b=%h a_parity=%b b_parity=%b", arg_a, arg_b, arg_a_parity, arg_b_parity);
@@ -284,6 +284,7 @@ initial begin : tester
                 end
             end 
     end : tester_main_blk
+    reset();
     $finish;
 end : tester
 
